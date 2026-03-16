@@ -8,6 +8,7 @@
       "developerName": "Slava Doroshenko",
       "subtitle": "SoundCloud with iPod Classic UI",
       "localizedDescription": "Listen to SoundCloud with the classic iPod Classic interface.\n\n• No ads\n• Works from Russia via proxy\n• Click wheel navigation\n• Offline downloads\n• Lock screen controls",
+      "iconURL": "https://slavadoroshenko.github.io/soundcloud-ipod/icon.png",
       "tintColor": "FF5500",
       "versions": [
         {
