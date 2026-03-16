@@ -361,9 +361,12 @@ export async function loadTrack(track: ScTrack, streamUrl: string) {
   setState({ track, isLoading: true, error: null, currentTime: 0, duration: 0 })
 
   if (isNative) {
-    // Native: AVPlayer
+    // Native: AVPlayer (5s timeout — если плагин не зарегистрирован, промис зависает навсегда)
+    const timeout = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('AudioPlayer: plugin not responding (5s timeout). Check Xcode project.')), 5000)
+    )
     try {
-      await AudioPlayer.load({ url: streamUrl })
+      await Promise.race([AudioPlayer.load({ url: streamUrl }), timeout])
     } catch (err) {
       setState({ error: String(err), isLoading: false })
     }
