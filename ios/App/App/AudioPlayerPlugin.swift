@@ -183,9 +183,19 @@ public class AudioPlayerPlugin: CAPPlugin, CAPBridgedPlugin {
                     let code = err?.code ?? -1
                     let domain = err?.domain ?? "unknown"
                     let msg = err?.localizedDescription ?? "Playback error"
-                    print("[AudioPlayerPlugin] failed: \(domain) \(code) — \(msg)")
+                    // HTTP-level details (403, 404, etc.)
+                    var httpStatus = 0
+                    var httpUri = ""
+                    if let events = item.errorLog()?.events, let last = events.last {
+                        httpStatus = last.errorStatusCode
+                        httpUri = last.uri ?? ""
+                    }
+                    print("[AudioPlayerPlugin] failed: \(domain) \(code) HTTP:\(httpStatus) \(msg) uri:\(httpUri)")
+                    let detail = httpStatus != 0 ? "HTTP \(httpStatus) (\(domain) \(code))" : "(\(domain) \(code))"
                     self?.notifyListeners("error", data: [
-                        "message": "\(msg) (\(domain) \(code))"
+                        "message": "\(msg) \(detail)",
+                        "httpStatus": httpStatus,
+                        "errorCode": code,
                     ])
                 default: break
                 }

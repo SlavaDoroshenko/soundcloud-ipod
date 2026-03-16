@@ -81,9 +81,10 @@ export function setAutoAdvanceCallback(fn: AutoAdvanceCallback | null) {
   _onAutoAdvance = fn
 }
 
-// Вызывается при ошибке воспроизведения — usePlayer может сделать retry
+// Вызывается при ошибке воспроизведения — usePlayer может сделать retry (максимум 1 раз)
 type PlayerErrorCallback = (track: ScTrack) => void
 let _onPlayerError: PlayerErrorCallback | null = null
+let _retryCount = 0
 export function setPlayerErrorCallback(fn: PlayerErrorCallback | null) {
   _onPlayerError = fn
 }
@@ -360,6 +361,7 @@ export function onTrackEnded(fn: () => void) {
 // ─── Player controls ─────────────────────────────────────────────────────────
 
 export async function loadTrack(track: ScTrack, streamUrl: string) {
+  _retryCount = 0   // сброс счётчика при загрузке нового трека
   _preloadRefreshed = false
   _isPreloading = false
   _cleanupBlob()
@@ -445,15 +447,18 @@ if (isNative) {
   })
 
   AudioPlayer.addListener('ready', (data) => {
+    _retryCount = 0  // сброс при успешной загрузке
     setState({ duration: data.duration ?? 0, isLoading: false })
   })
 
   AudioPlayer.addListener('error', (data) => {
     const track = state.track
-    if (track && _onPlayerError) {
-      // Передаём retry в usePlayer — он переполучит URL и перезагрузит трек
+    // Retry только один раз — защита от бесконечного цикла
+    if (track && _onPlayerError && _retryCount === 0) {
+      _retryCount = 1
       _onPlayerError(track)
     } else {
+      _retryCount = 0
       setState({ error: data.message ?? 'Playback error', isLoading: false, isPlaying: false })
     }
   })
