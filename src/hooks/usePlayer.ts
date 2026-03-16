@@ -28,6 +28,7 @@ import {
   setMediaSessionCallbacks,
   setPlayerError,
   setPlayerErrorCallback,
+  resetRetryCount,
   onTrackEnded,
   setPlayerQueue,
   preloadNextTrack,
@@ -127,6 +128,7 @@ export function usePlayer() {
     const track = q[idx]
     if (!track) return
 
+    resetRetryCount() // новый трек — сбросить счётчик retry
     setCurrentTrack(track)
     setQueueIndex(idx)
     setPlayerQueue(q, idx)

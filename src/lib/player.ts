@@ -88,6 +88,7 @@ let _retryCount = 0
 export function setPlayerErrorCallback(fn: PlayerErrorCallback | null) {
   _onPlayerError = fn
 }
+export function resetRetryCount() { _retryCount = 0 }
 
 // ─── Queue extender (бесконечная лента с заблокированным экраном) ────────────
 // Callback устанавливается из Feed.tsx. Вызывается напрямую из player (без React),
@@ -361,7 +362,6 @@ export function onTrackEnded(fn: () => void) {
 // ─── Player controls ─────────────────────────────────────────────────────────
 
 export async function loadTrack(track: ScTrack, streamUrl: string) {
-  _retryCount = 0   // сброс счётчика при загрузке нового трека
   _preloadRefreshed = false
   _isPreloading = false
   _cleanupBlob()
