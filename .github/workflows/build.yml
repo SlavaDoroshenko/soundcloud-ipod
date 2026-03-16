@@ -58,6 +58,9 @@ jobs:
           echo "PP_UUID=$UUID" >> $GITHUB_ENV
           echo "TEAM_ID=$TEAM_ID" >> $GITHUB_ENV
 
+      - name: Set version
+        run: echo "VERSION=1.0.${{ github.run_number }}" >> $GITHUB_ENV
+
       - name: Build & export IPA
         run: |
           set -o pipefail
@@ -68,6 +71,8 @@ jobs:
             -destination generic/platform=iOS \
             -archivePath $RUNNER_TEMP/App.xcarchive \
             DEVELOPMENT_TEAM=$TEAM_ID \
+            MARKETING_VERSION=$VERSION \
+            CURRENT_PROJECT_VERSION=${{ github.run_number }} \
             archive 2>&1 | tee /tmp/xcodebuild.log | xcpretty || (cat /tmp/xcodebuild.log && exit 1)
 
           cat > $RUNNER_TEMP/ExportOptions.plist << EOF
@@ -96,7 +101,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          VERSION="1.0.${{ github.run_number }}"
           DATE=$(date -u +%Y-%m-%d)
           IPA_PATH=$(find $RUNNER_TEMP/ipa -name "*.ipa" | head -1)
           IPA_RENAMED="$RUNNER_TEMP/SoundCloud-iPod.ipa"
