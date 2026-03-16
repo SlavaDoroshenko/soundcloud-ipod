@@ -58,8 +58,8 @@ async function hapticSelect() {
 }
 
 // --- Wheel zones ---
-const DEG_PER_TICK = 9  // 40 ticks per full rotation
-const SCROLL_THRESHOLD_PX = 8  // arc delta before we decide it's a scroll
+const DEG_PER_TICK = 15  // ~24 ticks per full rotation (less sensitive)
+const SCROLL_THRESHOLD_PX = 12  // arc delta before we decide it's a scroll
 
 type WheelButton = 'menu' | 'play' | 'next' | 'prev' | 'center'
 
@@ -142,7 +142,7 @@ export function useClickWheel(
     function loop(ts: number) {
       const dt = ts - lastTs
       lastTs = ts
-      vel *= Math.pow(0.92, dt / 16)  // decay per frame (~60fps)
+      vel *= Math.pow(0.88, dt / 16)  // faster decay = shorter coast
       if (Math.abs(vel) < 0.05) return  // stop
 
       acc += vel * dt
@@ -295,9 +295,10 @@ export function useClickWheel(
             case 'prev':   cbRef.current.onPrev(); break
           }
         }
-      } else if (Math.abs(velocity) > 0.3) {
-        // Start momentum
-        startMomentum(velocity)
+      } else if (Math.abs(velocity) > 0.5) {
+        // Start momentum with velocity cap to avoid flying through menus
+        const cappedVelocity = Math.sign(velocity) * Math.min(Math.abs(velocity), 3)
+        startMomentum(cappedVelocity)
       }
     }
 
