@@ -12,6 +12,7 @@
 		50379B232058CBB4000EE86E /* capacitor.config.json in Resources */ = {isa = PBXBuildFile; fileRef = 50379B222058CBB4000EE86E /* capacitor.config.json */; };
 		504EC3081FED79650016851F /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 504EC3071FED79650016851F /* AppDelegate.swift */; };
 		AA22222222222222AAAAAAAA /* AudioPlayerPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA11111111111111AAAAAAAA /* AudioPlayerPlugin.swift */; };
+		AA66666666666666AAAAAAAA /* MainViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA55555555555555AAAAAAAA /* MainViewController.swift */; };
 		AA44444444444444AAAAAAAA /* LockScreenPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA33333333333333AAAAAAAA /* LockScreenPlugin.swift */; };
 		504EC30D1FED79650016851F /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 504EC30B1FED79650016851F /* Main.storyboard */; };
 		504EC30F1FED79650016851F /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 504EC30E1FED79650016851F /* Assets.xcassets */; };
@@ -25,6 +26,7 @@
 		504EC3041FED79650016851F /* App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = App.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		504EC3071FED79650016851F /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		AA11111111111111AAAAAAAA /* AudioPlayerPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioPlayerPlugin.swift; sourceTree = "<group>"; };
+		AA55555555555555AAAAAAAA /* MainViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainViewController.swift; sourceTree = "<group>"; };
 		AA33333333333333AAAAAAAA /* LockScreenPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LockScreenPlugin.swift; sourceTree = "<group>"; };
 		504EC30C1FED79650016851F /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/Main.storyboard; sourceTree = "<group>"; };
 		504EC30E1FED79650016851F /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -70,6 +72,7 @@
 				504EC3071FED79650016851F /* AppDelegate.swift */,
 				AA11111111111111AAAAAAAA /* AudioPlayerPlugin.swift */,
 				AA33333333333333AAAAAAAA /* LockScreenPlugin.swift */,
+				AA55555555555555AAAAAAAA /* MainViewController.swift */,
 				504EC30B1FED79650016851F /* Main.storyboard */,
 				504EC30E1FED79650016851F /* Assets.xcassets */,
 				504EC3101FED79650016851F /* LaunchScreen.storyboard */,
@@ -164,6 +167,7 @@
 				504EC3081FED79650016851F /* AppDelegate.swift in Sources */,
 				AA22222222222222AAAAAAAA /* AudioPlayerPlugin.swift in Sources */,
 				AA44444444444444AAAAAAAA /* LockScreenPlugin.swift in Sources */,
+				AA66666666666666AAAAAAAA /* MainViewController.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
