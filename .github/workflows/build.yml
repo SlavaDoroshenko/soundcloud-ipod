@@ -99,13 +99,15 @@ jobs:
           VERSION="1.0.${{ github.run_number }}"
           DATE=$(date -u +%Y-%m-%d)
           IPA_PATH=$(find $RUNNER_TEMP/ipa -name "*.ipa" | head -1)
-          IPA_SIZE=$(stat -f%z "$IPA_PATH")
+          IPA_RENAMED="$RUNNER_TEMP/SoundCloud-iPod.ipa"
+          cp "$IPA_PATH" "$IPA_RENAMED"
+          IPA_SIZE=$(stat -f%z "$IPA_RENAMED")
 
-          # Create GitHub Release and upload IPA
+          # Create GitHub Release and upload IPA (filename = download URL key)
           gh release create "v$VERSION" \
             --title "v$VERSION" \
             --notes "Build #${{ github.run_number }} · $(date -u '+%Y-%m-%d %H:%M UTC')" \
-            "$IPA_PATH#SoundCloud-iPod.ipa"
+            "$IPA_RENAMED"
 
           DOWNLOAD_URL="https://github.com/${{ github.repository }}/releases/download/v$VERSION/SoundCloud-iPod.ipa"
 
