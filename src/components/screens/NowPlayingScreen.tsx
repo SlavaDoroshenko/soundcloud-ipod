@@ -111,6 +111,14 @@ export default function NowPlayingScreen() {
   const [repeatMode, setRepeatMode] = useAtom(repeatModeAtom)
   const { push } = useNavigation()
   const { togglePlay: togglePlayFn, playNext: playNextFn, playPrev: playPrevFn } = usePlayer()
+  const [playerError, setError] = useState<string | null>(() => getPlayerState().error)
+
+  useEffect(() => {
+    const unsub = subscribePlayer(() => {
+      setError(getPlayerState().error)
+    })
+    return () => { unsub() }
+  }, [])
 
   // Volume overlay state
   const [volume, setVolumeState] = useState(() => getPlayerState().volume)
@@ -257,6 +265,13 @@ export default function NowPlayingScreen() {
           <span>-{formatTime(duration - currentTime)}</span>
         </div>
       </div>
+
+      {/* Error display */}
+      {playerError && (
+        <div style={{ fontSize: '10px', color: '#ff6b6b', textAlign: 'center', padding: '2px 4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {playerError}
+        </div>
+      )}
 
       {/* Controls row */}
       <div style={{

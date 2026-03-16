@@ -57,6 +57,7 @@ let state: PlayerState = {
   duration: 0, volume: 1, isLoading: false, error: null,
 }
 export function getPlayerState(): PlayerState { return state }
+export function setPlayerError(msg: string | null) { setState({ error: msg, isLoading: false }) }
 function setState(patch: Partial<PlayerState>) {
   state = { ...state, ...patch }
   notify()

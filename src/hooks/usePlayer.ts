@@ -25,6 +25,7 @@ import {
   subscribePlayer,
   getPlayerState,
   setMediaSessionCallbacks,
+  setPlayerError,
   onTrackEnded,
   setPlayerQueue,
   preloadNextTrack,
@@ -169,6 +170,7 @@ export function usePlayer() {
       }
     } catch (err) {
       console.error('Ошибка загрузки трека:', err)
+      setPlayerError(err instanceof Error ? err.message : String(err))
     }
   }, [setCurrentTrack, setQueueIndex])
 
