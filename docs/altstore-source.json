@@ -9,7 +9,14 @@
       "subtitle": "SoundCloud with iPod Classic UI",
       "localizedDescription": "Listen to SoundCloud with the classic iPod Classic interface.\n\n• No ads\n• Works from Russia via proxy\n• Click wheel navigation\n• Offline downloads\n• Lock screen controls",
       "tintColor": "FF5500",
-      "versions": []
+      "versions": [
+        {
+          "version": "1.0.14",
+          "date": "2026-03-16",
+          "downloadURL": "https://github.com/SlavaDoroshenko/soundcloud-ipod/releases/download/v1.0.14/SoundCloud-iPod.ipa",
+          "size": 903865
+        }
+      ]
     }
   ],
   "news": []
