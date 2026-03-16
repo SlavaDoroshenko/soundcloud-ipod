@@ -38,6 +38,21 @@ import { LockScreen } from '@/lib/native/LockScreen'
 import { sc, invalidateLikedIdsCache } from '@/lib/api'
 import type { ScTrack } from '@/lib/api'
 
+// Module-level remote callbacks — обновляются из usePlayer, используются в одном listener
+let _remoteNext: (() => void) | null = null
+let _remotePrev: (() => void) | null = null
+let _lockScreenListenersSetup = false
+
+function setupLockScreenListeners() {
+  if (_lockScreenListenersSetup || !isNative) return
+  _lockScreenListenersSetup = true
+  LockScreen.addListener('remotePlay',  () => play())
+  LockScreen.addListener('remotePause', () => pause())
+  LockScreen.addListener('remoteNext',  () => _remoteNext?.())
+  LockScreen.addListener('remotePrev',  () => _remotePrev?.())
+  LockScreen.addListener('remoteSeek',  (d: { position: number }) => seek(d.position))
+}
+
 /** Синхронизирует нативный audio с Jotai atoms */
 export function usePlayerSync() {
   const setIsPlaying = useSetAtom(isPlayingAtom)
@@ -57,28 +72,6 @@ export function usePlayerSync() {
   }, [setIsPlaying, setIsLoading, setCurrentTime, setDuration])
 }
 
-/** Синхронизирует экран блокировки iOS через LockScreenPlugin (только native) */
-export function useLockScreenSync() {
-  useEffect(() => {
-    if (!isNative) return
-
-    // Подписка на события с экрана блокировки → JS player
-    const listeners: Array<Promise<{ remove: () => void }>> = []
-
-    listeners.push(LockScreen.addListener('remotePlay',  () => play()))
-    listeners.push(LockScreen.addListener('remotePause', () => pause()))
-    listeners.push(LockScreen.addListener('remoteNext',  () => {
-      // usePlayer.playNext вызывается через onTrackEnded — тут просто пропускаем
-      // Это вызывается из MPRemoteCommandCenter, который идёт через skipToNext плагина
-    }))
-    listeners.push(LockScreen.addListener('remotePrev',  () => {}))
-    listeners.push(LockScreen.addListener('remoteSeek',  (d) => seek(d.position)))
-
-    return () => {
-      listeners.forEach(p => p.then(l => l.remove()))
-    }
-  }, [])
-}
 
 /** Основной хук для управления плеером */
 export function usePlayer() {
@@ -201,6 +194,10 @@ export function usePlayer() {
 
   useEffect(() => {
     setMediaSessionCallbacks(playPrev, playNext)
+    // Обновляем module-level callbacks для нативного экрана блокировки
+    _remoteNext = playNext
+    _remotePrev = playPrev
+    setupLockScreenListeners()
   }, [playPrev, playNext])
 
   // Синхронизируем Jotai atoms при автопереключении из player.ts (заблокированный экран)

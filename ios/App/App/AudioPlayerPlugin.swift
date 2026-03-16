@@ -1,5 +1,6 @@
 import Foundation
 import AVFoundation
+import MediaPlayer
 import Capacitor
 
 /// Singleton AVPlayer для бесконечного фонового воспроизведения.
@@ -146,11 +147,22 @@ public class AudioPlayerPlugin: CAPPlugin, CAPBridgedPlugin {
             let duration = item.duration.seconds
             let current  = time.seconds
             if current.isNaN || duration.isNaN { return }
+            let safeDuration = duration.isInfinite ? 0.0 : duration
             self.notifyListeners("progress", data: [
                 "currentTime": current,
-                "duration": duration.isInfinite ? 0 : duration,
+                "duration": safeDuration,
                 "isPlaying": self.player?.rate != 0,
             ])
+            // Обновляем тайм-код на экране блокировки напрямую из Swift.
+            // JS не может делать это когда экран заблокирован (WKWebView замерзает).
+            if var info = MPNowPlayingInfoCenter.default().nowPlayingInfo {
+                info[MPNowPlayingInfoPropertyElapsedPlaybackTime] = current
+                if safeDuration > 0 {
+                    info[MPMediaItemPropertyPlaybackDuration] = safeDuration
+                }
+                info[MPNowPlayingInfoPropertyPlaybackRate] = self.player?.rate != 0 ? 1.0 : 0.0
+                MPNowPlayingInfoCenter.default().nowPlayingInfo = info
+            }
         }
 
         // KVO статус — ready / failed
@@ -159,9 +171,13 @@ public class AudioPlayerPlugin: CAPPlugin, CAPBridgedPlugin {
                 switch item.status {
                 case .readyToPlay:
                     let dur = item.duration.seconds
-                    self?.notifyListeners("ready", data: [
-                        "duration": (dur.isNaN || dur.isInfinite) ? 0 : dur
-                    ])
+                    let safeDur = (dur.isNaN || dur.isInfinite) ? 0.0 : dur
+                    self?.notifyListeners("ready", data: ["duration": safeDur])
+                    // Сразу прописываем реальный duration на экране блокировки
+                    if safeDur > 0, var info = MPNowPlayingInfoCenter.default().nowPlayingInfo {
+                        info[MPMediaItemPropertyPlaybackDuration] = safeDur
+                        MPNowPlayingInfoCenter.default().nowPlayingInfo = info
+                    }
                 case .failed:
                     self?.notifyListeners("error", data: [
                         "message": item.error?.localizedDescription ?? "Playback error"
