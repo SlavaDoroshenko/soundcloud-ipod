@@ -1,5 +1,5 @@
 import { useEffect, useCallback } from 'react'
-import { db, createBlobUrl } from '@/lib/downloads'
+import { db } from '@/lib/downloads'
 import { useAtom, useSetAtom, useAtomValue } from 'jotai'
 import { useQueryClient } from '@tanstack/react-query'
 import {
@@ -138,11 +138,11 @@ export function usePlayer() {
     setPlayerQueue(q, idx)
 
     try {
-      // Offline-first: use downloaded blob if available
+      // Offline-first: use downloaded file if available (file:// → AVPlayer → LockScreen works)
       let streamUrl: string
       const downloaded = await db.downloads.get(track.id)
       if (downloaded) {
-        streamUrl = createBlobUrl(downloaded)
+        streamUrl = downloaded.filePath
       } else {
         const transcoding = sc.streams(track)
         if (!transcoding) throw new Error('Нет доступного потока')
