@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Background squircle -->
+  <rect width="512" height="512" rx="115" fill="#ff5500"/>
+  <!-- Soundwave bars (like SoundCloud logo) -->
+  <!-- Central play-like waveform: 5 bars of varying heights -->
+  <rect x="148" y="216" width="36" height="80" rx="18" fill="white" opacity="1"/>
+  <rect x="202" y="176" width="36" height="160" rx="18" fill="white" opacity="1"/>
+  <rect x="256" y="148" width="36" height="216" rx="18" fill="white" opacity="1"/>
+  <rect x="310" y="184" width="36" height="144" rx="18" fill="white" opacity="1"/>
+  <rect x="364" y="208" width="36" height="96" rx="18" fill="white" opacity="1"/>
+</svg>

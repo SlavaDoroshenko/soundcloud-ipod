@@ -2,7 +2,10 @@
   "permissions": {
     "allow": [
       "WebFetch(domain:raw.githubusercontent.com)",
-      "WebFetch(domain:github.com)"
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:api.github.com)",
+      "Bash(curl -s \"https://raw.githubusercontent.com/zxcloli666/SoundCloud-Desktop/main/desktop/src/pages/TrackPage.tsx\")",
+      "WebSearch"
     ]
   }
 }
