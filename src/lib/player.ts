@@ -360,7 +360,10 @@ export async function loadTrack(track: ScTrack, streamUrl: string) {
 
   setState({ track, isLoading: true, error: null, currentTime: 0, duration: 0 })
 
-  if (isNative) {
+  // blob:// URLs live only in WKWebView JS context — AVPlayer can't resolve them
+  const useBlobAudio = streamUrl.startsWith('blob:')
+
+  if (isNative && !useBlobAudio) {
     // Native: AVPlayer (5s timeout — если плагин не зарегистрирован, промис зависает навсегда)
     const timeout = new Promise<never>((_, reject) =>
       setTimeout(() => reject(new Error('AudioPlayer: plugin not responding (5s timeout). Check Xcode project.')), 5000)
@@ -371,7 +374,7 @@ export async function loadTrack(track: ScTrack, streamUrl: string) {
       setState({ error: String(err), isLoading: false })
     }
   } else {
-    // HTML5
+    // HTML5 (browser or blob:// offline playback)
     _audio.src = streamUrl
     _audio.load()
     updateMediaSession(track)

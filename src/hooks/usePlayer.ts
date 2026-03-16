@@ -1,4 +1,5 @@
 import { useEffect, useCallback } from 'react'
+import { db, createBlobUrl } from '@/lib/downloads'
 import { useAtom, useSetAtom, useAtomValue } from 'jotai'
 import { useQueryClient } from '@tanstack/react-query'
 import {
@@ -137,9 +138,16 @@ export function usePlayer() {
     setPlayerQueue(q, idx)
 
     try {
-      const transcoding = sc.streams(track)
-      if (!transcoding) throw new Error('Нет доступного потока')
-      const streamUrl = await sc.resolveStreamUrl(transcoding)
+      // Offline-first: use downloaded blob if available
+      let streamUrl: string
+      const downloaded = await db.downloads.get(track.id)
+      if (downloaded) {
+        streamUrl = createBlobUrl(downloaded)
+      } else {
+        const transcoding = sc.streams(track)
+        if (!transcoding) throw new Error('Нет доступного потока')
+        streamUrl = await sc.resolveStreamUrl(transcoding)
+      }
       await loadTrack(track, streamUrl)
       play()
 
