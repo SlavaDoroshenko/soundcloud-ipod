@@ -149,6 +149,27 @@ export async function deleteDownload(trackId: number) {
   await db.downloads.delete(trackId)
 }
 
+// Always resolves a fresh URI using current app container path.
+// After iOS app updates the sandbox UUID changes, so stored file:// paths
+// become stale. Filesystem.getUri() always returns the current-valid URI.
+export async function resolveDownloadUri(trackId: number): Promise<string | null> {
+  const downloaded = await db.downloads.get(trackId)
+  if (!downloaded) return null
+
+  if (Capacitor.isNativePlatform()) {
+    try {
+      const { uri } = await Filesystem.getUri({
+        path: `downloads/${trackId}.mp3`,
+        directory: Directory.Documents,
+      })
+      return uri
+    } catch {
+      return null
+    }
+  }
+  return downloaded.filePath  // web: blob URL, no UUID issue
+}
+
 export async function getAllDownloads(): Promise<DownloadedTrack[]> {
   return db.downloads.orderBy('downloadedAt').reverse().toArray()
 }

@@ -14,7 +14,7 @@ import {
   registerScrollAction,
 } from '@/stores/navigation'
 import { useNavigation } from '@/stores/navigation'
-import { getPlayerState, setVolume, subscribePlayer } from '@/lib/player'
+import { getPlayerState, seek, subscribePlayer } from '@/lib/player'
 
 function formatTime(s: number) {
   if (!isFinite(s)) return '0:00'
@@ -81,16 +81,6 @@ export default function NowPlayingScreen() {
     return () => { unsub() }
   }, [])
 
-  // Volume overlay
-  const [volume, setVolumeState] = useState(() => getPlayerState().volume)
-  const [showVolume, setShowVolume] = useState(false)
-  const volumeHideRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  useEffect(() => {
-    const unsub = subscribePlayer(() => setVolumeState(getPlayerState().volume))
-    return () => { unsub() }
-  }, [])
-
   // Track direction for artwork animation
   const prevQueueIndex = useRef(queueIndex)
   const [artworkKey, setArtworkKey] = useState(0)
@@ -116,20 +106,15 @@ export default function NowPlayingScreen() {
     return () => registerCenterHoldAction(null)
   }, [track, push])
 
-  // SCROLL = volume control
+  // SCROLL = seek (5 seconds per tick)
   useEffect(() => {
     registerScrollAction((delta) => {
-      const newVol = Math.max(0, Math.min(1, getPlayerState().volume + delta * 0.05))
-      setVolume(newVol)
-      setVolumeState(newVol)
-      setShowVolume(true)
-      if (volumeHideRef.current) clearTimeout(volumeHideRef.current)
-      volumeHideRef.current = setTimeout(() => setShowVolume(false), 1800)
+      const { currentTime, duration } = getPlayerState()
+      if (duration > 0) {
+        seek(Math.max(0, Math.min(duration, currentTime + delta * 5)))
+      }
     })
-    return () => {
-      registerScrollAction(null)
-      if (volumeHideRef.current) clearTimeout(volumeHideRef.current)
-    }
+    return () => { registerScrollAction(null) }
   }, [])
 
   const artworkUrl = track?.artwork_url?.replace('-large', '-t500x500') ?? null
@@ -243,45 +228,6 @@ export default function NowPlayingScreen() {
         </div>
       </div>
 
-      {/* Volume overlay */}
-      {showVolume && (
-        <div style={{
-          position: 'absolute',
-          bottom: '50px',
-          left: '50%',
-          transform: 'translateX(-50%)',
-          background: 'rgba(20,20,20,0.92)',
-          borderRadius: '10px',
-          padding: '8px 14px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px',
-          minWidth: '150px',
-          backdropFilter: 'blur(8px)',
-          border: '1px solid rgba(255,255,255,0.08)',
-          animation: 'fade-in-up 0.15s ease-out',
-          zIndex: 10,
-        }}>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-            {volume === 0
-              ? <path d="M11 5L6 9H2v6h4l5 4V5zM23 9l-6 6M17 9l6 6" stroke="#8a8a8a" strokeWidth="2" strokeLinecap="round" />
-              : <path d="M11 5L6 9H2v6h4l5 4V5zM15.54 8.46a5 5 0 010 7.07" stroke="#8a8a8a" strokeWidth="2" strokeLinecap="round" />
-            }
-          </svg>
-          <div style={{ flex: 1, height: '4px', background: '#333', borderRadius: '2px', overflow: 'hidden' }}>
-            <div style={{
-              width: `${volume * 100}%`,
-              height: '100%',
-              background: 'linear-gradient(to right, #5baef8, #3478c4)',
-              borderRadius: '2px',
-              transition: 'width 0.1s',
-            }} />
-          </div>
-          <span style={{ fontSize: '10px', color: '#8a8a8a', minWidth: '26px', textAlign: 'right' }}>
-            {Math.round(volume * 100)}%
-          </span>
-        </div>
-      )}
     </div>
   )
 }
