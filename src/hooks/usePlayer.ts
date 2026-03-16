@@ -27,6 +27,7 @@ import {
   getPlayerState,
   setMediaSessionCallbacks,
   setPlayerError,
+  setPlayerErrorCallback,
   onTrackEnded,
   setPlayerQueue,
   preloadNextTrack,
@@ -216,6 +217,28 @@ export function usePlayer() {
     })
     return () => setQueueExtendedCallback(null)
   }, [setQueue])
+
+  // Retry при ошибке AVPlayer (истёкший CDN URL и т.п.) — переполучаем URL и перезагружаем
+  useEffect(() => {
+    setPlayerErrorCallback(async (track) => {
+      try {
+        const downloaded = await db.downloads.get(track.id)
+        let streamUrl: string
+        if (downloaded) {
+          streamUrl = downloaded.filePath
+        } else {
+          const transcoding = sc.streams(track)
+          if (!transcoding) throw new Error('Нет доступного потока')
+          streamUrl = await sc.resolveStreamUrl(transcoding)
+        }
+        await loadTrack(track, streamUrl)
+        play()
+      } catch (err) {
+        setPlayerError(err instanceof Error ? err.message : String(err))
+      }
+    })
+    return () => setPlayerErrorCallback(null)
+  }, [])
 
   // Fallback: если предзагруженный URL недоступен, даём React попробовать
   useEffect(() => {

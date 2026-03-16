@@ -179,8 +179,13 @@ public class AudioPlayerPlugin: CAPPlugin, CAPBridgedPlugin {
                         MPNowPlayingInfoCenter.default().nowPlayingInfo = info
                     }
                 case .failed:
+                    let err = item.error as NSError?
+                    let code = err?.code ?? -1
+                    let domain = err?.domain ?? "unknown"
+                    let msg = err?.localizedDescription ?? "Playback error"
+                    print("[AudioPlayerPlugin] failed: \(domain) \(code) — \(msg)")
                     self?.notifyListeners("error", data: [
-                        "message": item.error?.localizedDescription ?? "Playback error"
+                        "message": "\(msg) (\(domain) \(code))"
                     ])
                 default: break
                 }

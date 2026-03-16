@@ -81,6 +81,13 @@ export function setAutoAdvanceCallback(fn: AutoAdvanceCallback | null) {
   _onAutoAdvance = fn
 }
 
+// Вызывается при ошибке воспроизведения — usePlayer может сделать retry
+type PlayerErrorCallback = (track: ScTrack) => void
+let _onPlayerError: PlayerErrorCallback | null = null
+export function setPlayerErrorCallback(fn: PlayerErrorCallback | null) {
+  _onPlayerError = fn
+}
+
 // ─── Queue extender (бесконечная лента с заблокированным экраном) ────────────
 // Callback устанавливается из Feed.tsx. Вызывается напрямую из player (без React),
 // поэтому работает когда экран заблокирован — iOS пропускает fetch через audio session.
@@ -442,7 +449,13 @@ if (isNative) {
   })
 
   AudioPlayer.addListener('error', (data) => {
-    setState({ error: data.message ?? 'Playback error', isLoading: false, isPlaying: false })
+    const track = state.track
+    if (track && _onPlayerError) {
+      // Передаём retry в usePlayer — он переполучит URL и перезагрузит трек
+      _onPlayerError(track)
+    } else {
+      setState({ error: data.message ?? 'Playback error', isLoading: false, isPlaying: false })
+    }
   })
 
   AudioPlayer.addListener('trackEnded', () => {
