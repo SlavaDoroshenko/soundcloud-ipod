@@ -232,11 +232,32 @@ async function proxyTo(targetUrl, originalRequest, ctx) {
     headers.set('True-Client-IP', clientIP)
   }
 
-  // Пробрасываем DataDome clientid если клиент его прислал
-  const ddId = originalRequest.headers.get('x-datadome-id')
-  if (ddId) {
-    headers.set('x-datadome-clientid', ddId)
-    headers.set('Cookie', `datadome=${ddId}`)
+  // For write ops: fetch a fresh DataDome cookie from SC directly in the Worker.
+  // We cannot rely on the client to forward it — WKWebView strips custom response
+  // headers, so saveDatadomeId() never fires in the native iOS app.
+  const clientDdId = originalRequest.headers.get('x-datadome-id')
+  let activeDdId = clientDdId
+
+  if (!activeDdId && ['PUT', 'DELETE', 'POST'].includes(originalRequest.method)) {
+    try {
+      const warmup = await fetch(`${SOUNDCLOUD_ORIGIN}/`, {
+        headers: {
+          'User-Agent': headers.get('User-Agent'),
+          'Origin': SOUNDCLOUD_ORIGIN,
+          'Referer': SOUNDCLOUD_ORIGIN + '/',
+          'X-Forwarded-For': headers.get('X-Forwarded-For') || '',
+          'True-Client-IP': headers.get('True-Client-IP') || '',
+        },
+      })
+      const setCookie = warmup.headers.get('set-cookie') || warmup.headers.get('x-set-cookie') || ''
+      const m = setCookie.match(/datadome=([^;]+)/)
+      if (m) activeDdId = m[1]
+    } catch { /* non-fatal */ }
+  }
+
+  if (activeDdId) {
+    headers.set('x-datadome-clientid', activeDdId)
+    headers.set('Cookie', `datadome=${activeDdId}`)
   }
 
   let response
