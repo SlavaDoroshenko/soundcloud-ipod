@@ -115,9 +115,7 @@ export function usePlayer() {
       else await sc.unlike(currentTrack.id, currentUser.id)
       queryClient.invalidateQueries({ queryKey: ['likes', currentUser.id] })
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err)
-      console.error('[toggleLike] failed:', msg)
-      alert(`Like failed: ${msg}`)
+      console.error('[toggleLike] failed:', err)
       // Revert
       setIsLiked(!next)
       setLikedIds(prev => {

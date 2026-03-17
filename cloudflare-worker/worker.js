@@ -213,8 +213,6 @@ async function proxyTo(targetUrl, originalRequest, ctx) {
 
   const FORWARD_HEADERS = [
     'authorization', 'range', 'content-type', 'accept', 'accept-language',
-    'sec-ch-ua', 'sec-ch-ua-mobile', 'sec-ch-ua-platform',
-    'sec-ch-ua-arch', 'sec-ch-ua-full-version-list', 'sec-ch-ua-model',
     'sec-gpc', 'dnt',
   ]
   const headers = new Headers()
@@ -223,9 +221,10 @@ async function proxyTo(targetUrl, originalRequest, ctx) {
   }
   headers.set('Origin', SOUNDCLOUD_ORIGIN)
   headers.set('Referer', SOUNDCLOUD_ORIGIN + '/')
-  // Use real browser UA from client, fall back to generic
-  const clientUA = originalRequest.headers.get('user-agent')
-  headers.set('User-Agent', clientUA || 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36')
+  // Always use a fixed desktop Chrome UA so DataDome sees consistent fingerprint
+  // for both GET (cookie acquisition) and PUT/DELETE (write ops). iOS WKWebView UA
+  // passes GET requests but DataDome blocks write ops from non-desktop UAs.
+  headers.set('User-Agent', 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36')
   // Forward real client IP so DataDome can correlate with the browser session
   const clientIP = originalRequest.headers.get('CF-Connecting-IP')
   if (clientIP) {
