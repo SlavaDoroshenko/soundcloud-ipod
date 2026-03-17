@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from 'react'
+import { useEffect, useCallback, useRef } from 'react'
 import { resolveDownloadUri } from '@/lib/downloads'
 import { useAtom, useSetAtom, useAtomValue } from 'jotai'
 import { useQueryClient } from '@tanstack/react-query'
@@ -89,6 +89,8 @@ export function usePlayer() {
   const canPlayPrev = useAtomValue(canPlayPrevAtom)
   const [isLiked, setIsLiked] = useAtom(isLikedAtom)
   const [likedIds, setLikedIds] = useAtom(likedTrackIdsAtom)
+  const likedIdsRef = useRef(likedIds)
+  likedIdsRef.current = likedIds
   const isAuthenticated = useAtomValue(isAuthenticatedAtom)
   const currentUser = useAtomValue(currentUserAtom)
   const queryClient = useQueryClient()
@@ -157,7 +159,7 @@ export function usePlayer() {
           currentTime: 0,
           isPlaying: true,
           artworkUrl,
-          isLiked: false, // usePlayer.toggleLike обновит отдельно
+          isLiked: likedIdsRef.current.has(track.id),
         }).catch(() => {})
       }
 
