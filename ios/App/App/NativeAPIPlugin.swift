@@ -76,7 +76,7 @@ public class NativeAPIPlugin: CAPPlugin, CAPBridgedPlugin {
             if (200..<300).contains(http.statusCode) || http.statusCode == 404 {
                 call.resolve(["status": http.statusCode])
             } else {
-                call.reject("HTTP \(http.statusCode): \(String(body.prefix(400)))")
+                call.reject("HTTP \(http.statusCode): \(body)")
             }
         }.resume()
     }

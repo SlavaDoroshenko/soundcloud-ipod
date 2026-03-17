@@ -333,30 +333,36 @@ export const sc = {
   like: async (trackId: number, userId: number) => {
     const path = `/users/${userId}/track_likes/${trackId}`
     if (!Capacitor.isNativePlatform()) return apiPut<void>(path)
+    // iOS: запрос идёт напрямую с устройства (не через Worker).
+    // DataDome challenge генерируется для IP устройства → капча решается
+    // с того же IP → retry проходит. Worker-путь давал challenge для IP воркера,
+    // а retry шёл с IP устройства → DataDome видел разные IP → блокировал снова.
+    const clientId = await getClientId()
+    const accessToken = getAccessToken() ?? ''
+    const ddCookie = localStorage.getItem('sc_dd_clientid') ?? ''
     try {
-      return await apiPut<void>(path)
+      await NativeAPI.put({ path, clientId, accessToken, ddCookie })
     } catch (err) {
-      // 403 DataDome → решаем капчу на устройстве, затем делаем запрос
-      // напрямую с устройства (тот же IP что и при капче)
       const captchaUrl = parseCaptchaUrl(String(err))
       if (!captchaUrl) throw err
       const cookie = await solveCaptcha(captchaUrl)
-      const clientId = await getClientId()
-      await NativeAPI.put({ path, clientId, accessToken: getAccessToken() ?? '', ddCookie: cookie })
+      await NativeAPI.put({ path, clientId, accessToken, ddCookie: cookie })
     }
   },
 
   unlike: async (trackId: number, userId: number) => {
     const path = `/users/${userId}/track_likes/${trackId}`
     if (!Capacitor.isNativePlatform()) return apiDelete(path)
+    const clientId = await getClientId()
+    const accessToken = getAccessToken() ?? ''
+    const ddCookie = localStorage.getItem('sc_dd_clientid') ?? ''
     try {
-      return await apiDelete(path)
+      await NativeAPI.delete({ path, clientId, accessToken, ddCookie })
     } catch (err) {
       const captchaUrl = parseCaptchaUrl(String(err))
       if (!captchaUrl) throw err
       const cookie = await solveCaptcha(captchaUrl)
-      const clientId = await getClientId()
-      await NativeAPI.delete({ path, clientId, accessToken: getAccessToken() ?? '', ddCookie: cookie })
+      await NativeAPI.delete({ path, clientId, accessToken, ddCookie: cookie })
     }
   },
 
