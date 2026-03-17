@@ -8,5 +8,6 @@ class MainViewController: CAPBridgeViewController {
         bridge?.registerPluginInstance(AudioPlayerPlugin())
         bridge?.registerPluginInstance(LockScreenPlugin())
         bridge?.registerPluginInstance(DataDomePlugin())
+        bridge?.registerPluginInstance(NativeAPIPlugin())
     }
 }

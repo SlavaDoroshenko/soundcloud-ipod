@@ -15,6 +15,7 @@
 		AA66666666666666AAAAAAAA /* MainViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA55555555555555AAAAAAAA /* MainViewController.swift */; };
 		AA44444444444444AAAAAAAA /* LockScreenPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA33333333333333AAAAAAAA /* LockScreenPlugin.swift */; };
 		AA88888888888888AAAAAAAA /* DataDomePlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA77777777777777AAAAAAAA /* DataDomePlugin.swift */; };
+		AABBBBBBBBBBBBBBAAAAAAAA /* NativeAPIPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAAAAAAAAAAAAAAAAAAAAAAA /* NativeAPIPlugin.swift */; };
 		504EC30D1FED79650016851F /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 504EC30B1FED79650016851F /* Main.storyboard */; };
 		504EC30F1FED79650016851F /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 504EC30E1FED79650016851F /* Assets.xcassets */; };
 		504EC3121FED79650016851F /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 504EC3101FED79650016851F /* LaunchScreen.storyboard */; };
@@ -30,6 +31,7 @@
 		AA55555555555555AAAAAAAA /* MainViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainViewController.swift; sourceTree = "<group>"; };
 		AA33333333333333AAAAAAAA /* LockScreenPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LockScreenPlugin.swift; sourceTree = "<group>"; };
 		AA77777777777777AAAAAAAA /* DataDomePlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataDomePlugin.swift; sourceTree = "<group>"; };
+		AAAAAAAAAAAAAAAAAAAAAAAA /* NativeAPIPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeAPIPlugin.swift; sourceTree = "<group>"; };
 		504EC30C1FED79650016851F /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/Main.storyboard; sourceTree = "<group>"; };
 		504EC30E1FED79650016851F /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		504EC3111FED79650016851F /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
@@ -75,6 +77,7 @@
 				AA11111111111111AAAAAAAA /* AudioPlayerPlugin.swift */,
 				AA33333333333333AAAAAAAA /* LockScreenPlugin.swift */,
 				AA77777777777777AAAAAAAA /* DataDomePlugin.swift */,
+				AAAAAAAAAAAAAAAAAAAAAAAA /* NativeAPIPlugin.swift */,
 				AA55555555555555AAAAAAAA /* MainViewController.swift */,
 				504EC30B1FED79650016851F /* Main.storyboard */,
 				504EC30E1FED79650016851F /* Assets.xcassets */,
@@ -171,6 +174,7 @@
 				AA22222222222222AAAAAAAA /* AudioPlayerPlugin.swift in Sources */,
 				AA44444444444444AAAAAAAA /* LockScreenPlugin.swift in Sources */,
 				AA88888888888888AAAAAAAA /* DataDomePlugin.swift in Sources */,
+				AABBBBBBBBBBBBBBAAAAAAAA /* NativeAPIPlugin.swift in Sources */,
 				AA66666666666666AAAAAAAA /* MainViewController.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

@@ -5,6 +5,7 @@
 
 import { Capacitor } from '@capacitor/core'
 import { DataDome } from './native/DataDome'
+import { NativeAPI } from './native/NativeAPI'
 
 const PROXY_BASE = import.meta.env.VITE_PROXY_URL ?? 'https://api-v2.soundcloud.com'
 const SC_BASE = 'https://api-v2.soundcloud.com'
@@ -344,11 +345,29 @@ export const sc = {
       { params: { limit, linked_partitioning: 1 } }
     ),
 
-  like: (trackId: number, userId: number) =>
-    apiPut<void>(`/users/${userId}/track_likes/${trackId}`),
+  like: async (trackId: number, userId: number) => {
+    const path = `/users/${userId}/track_likes/${trackId}`
+    if (Capacitor.isNativePlatform()) {
+      const clientId = await getClientId()
+      const accessToken = getAccessToken() ?? ''
+      const ddCookie = localStorage.getItem('sc_dd_clientid') ?? ''
+      await NativeAPI.put({ path, clientId, accessToken, ddCookie })
+      return
+    }
+    return apiPut<void>(path)
+  },
 
-  unlike: (trackId: number, userId: number) =>
-    apiDelete(`/users/${userId}/track_likes/${trackId}`),
+  unlike: async (trackId: number, userId: number) => {
+    const path = `/users/${userId}/track_likes/${trackId}`
+    if (Capacitor.isNativePlatform()) {
+      const clientId = await getClientId()
+      const accessToken = getAccessToken() ?? ''
+      const ddCookie = localStorage.getItem('sc_dd_clientid') ?? ''
+      await NativeAPI.delete({ path, clientId, accessToken, ddCookie })
+      return
+    }
+    return apiDelete(path)
+  },
 
   playlists: (userId: number, limit = 50) =>
     apiGet<ScCollection<ScPlaylist>>(`/users/${userId}/playlists`, { params: { limit, linked_partitioning: 1 } }),
