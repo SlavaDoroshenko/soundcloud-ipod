@@ -66,24 +66,7 @@ export default function MenuScreen({ items, selectedIndex, onSelectIndex, title 
         </div>
       )}
 
-      <div ref={containerRef} className="flex-1 overflow-y-auto" style={{ overscrollBehavior: 'none', position: 'relative' }}>
-        {/* Selection indicator — single element that translates, no per-item repaint */}
-        <div
-          aria-hidden
-          style={{
-            position: 'absolute',
-            left: 0,
-            right: 0,
-            top: 0,
-            height: '32px',
-            transform: `translateY(${selectedIndex * 32}px)`,
-            background: 'linear-gradient(to bottom, var(--ipod-selection-from), var(--ipod-selection-to))',
-            willChange: 'transform',
-            pointerEvents: 'none',
-            zIndex: 0,
-          }}
-        />
-
+      <div ref={containerRef} className="flex-1 overflow-y-auto" style={{ overscrollBehavior: 'none' }}>
         {items.map((item, i) => {
           const isSelected = i === selectedIndex
           return (
@@ -94,12 +77,10 @@ export default function MenuScreen({ items, selectedIndex, onSelectIndex, title 
                 onSelectIndex?.(i)
                 item.onTap()
               }}
-              className="flex items-center justify-between px-3 cursor-pointer"
+              className={`flex items-center justify-between px-3 cursor-pointer${isSelected ? ' ipod-selected' : ''}`}
               style={{
                 height: '32px',
                 borderBottom: '1px solid #1e1e1e',
-                position: 'relative',
-                zIndex: 1,
               }}
             >
               <span
