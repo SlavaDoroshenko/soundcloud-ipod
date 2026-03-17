@@ -1,7 +1,9 @@
 import { registerPlugin } from '@capacitor/core'
 
 export interface DataDomePlugin {
-  /** Загружает soundcloud.com в скрытом WKWebView и возвращает cookie datadome */
+  /** Загружает DataDome challenge URL в скрытом WKWebView → авто-решает → возвращает cookie */
+  solveCaptcha(options: { url: string }): Promise<{ cookie: string }>
+  /** Fallback: загружает soundcloud.com (может быть недоступен в RU) */
   fetchCookie(): Promise<{ cookie: string }>
 }
 

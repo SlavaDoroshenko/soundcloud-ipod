@@ -116,18 +116,36 @@ function saveDatadomeId(res: Response) {
   if (ddId) localStorage.setItem('sc_dd_clientid', ddId)
 }
 
-/** Запускает скрытый WKWebView → soundcloud.com → DataDome JS → сохраняет cookie.
- *  Только на native iOS. На вебе — no-op. */
-export async function refreshDataDomeCookie(): Promise<boolean> {
+/** Разбирает тело 403 ответа, находит DataDome challenge URL и решает его в WKWebView.
+ *  Только на native iOS. Возвращает true если cookie успешно обновлён. */
+async function solveDataDomeChallenge(errBody: string): Promise<boolean> {
   if (!Capacitor.isNativePlatform()) return false
+  try {
+    const data = JSON.parse(errBody) as { url?: string }
+    if (data.url && (data.url.includes('datadome') || data.url.includes('captcha-delivery'))) {
+      console.log('[DataDome] solving challenge:', data.url)
+      const { cookie } = await DataDome.solveCaptcha({ url: data.url })
+      localStorage.setItem('sc_dd_clientid', cookie)
+      console.log('[DataDome] cookie obtained via challenge')
+      return true
+    }
+  } catch { /* not JSON or no url */ }
+
+  // Fallback: загружаем soundcloud.com напрямую
   try {
     const { cookie } = await DataDome.fetchCookie()
     localStorage.setItem('sc_dd_clientid', cookie)
+    console.log('[DataDome] cookie obtained via soundcloud.com')
     return true
   } catch (err) {
     console.warn('[DataDome] fetchCookie failed:', err)
     return false
   }
+}
+
+/** Публичный fallback для кнопки "Обновить" в Settings */
+export async function refreshDataDomeCookie(): Promise<boolean> {
+  return solveDataDomeChallenge('')
 }
 
 export async function apiGet<T>(path: string, options: RequestOptions = {}): Promise<T> {
@@ -167,8 +185,8 @@ export async function apiPut<T>(path: string, body?: unknown): Promise<T> {
   let res = await makeReq()
   saveDatadomeId(res)
   if (res.status === 403) {
-    // Обновляем DataDome cookie через нативный WKWebView и повторяем
-    await refreshDataDomeCookie()
+    const errBody = await res.text().catch(() => '')
+    await solveDataDomeChallenge(errBody)
     res = await makeReq()
     saveDatadomeId(res)
   }
@@ -191,8 +209,8 @@ export async function apiDelete(path: string): Promise<void> {
   let res = await makeReq()
   saveDatadomeId(res)
   if (res.status === 403) {
-    // Обновляем DataDome cookie через нативный WKWebView и повторяем
-    await refreshDataDomeCookie()
+    const errBody = await res.text().catch(() => '')
+    await solveDataDomeChallenge(errBody)
     res = await makeReq()
     saveDatadomeId(res)
   }
