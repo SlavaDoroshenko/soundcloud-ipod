@@ -66,7 +66,24 @@ export default function MenuScreen({ items, selectedIndex, onSelectIndex, title 
         </div>
       )}
 
-      <div ref={containerRef} className="flex-1 overflow-y-auto" style={{ overscrollBehavior: 'none' }}>
+      <div ref={containerRef} className="flex-1 overflow-y-auto" style={{ overscrollBehavior: 'none', position: 'relative' }}>
+        {/* Selection indicator — single element that translates, no per-item repaint */}
+        <div
+          aria-hidden
+          style={{
+            position: 'absolute',
+            left: 0,
+            right: 0,
+            top: 0,
+            height: '32px',
+            transform: `translateY(${selectedIndex * 32}px)`,
+            background: 'linear-gradient(to bottom, var(--ipod-selection-from), var(--ipod-selection-to))',
+            willChange: 'transform',
+            pointerEvents: 'none',
+            zIndex: 0,
+          }}
+        />
+
         {items.map((item, i) => {
           const isSelected = i === selectedIndex
           return (
@@ -77,19 +94,19 @@ export default function MenuScreen({ items, selectedIndex, onSelectIndex, title 
                 onSelectIndex?.(i)
                 item.onTap()
               }}
-              className={`flex items-center justify-between px-3 cursor-pointer active:opacity-80 ${
-                isSelected ? 'ipod-selected' : ''
-              }`}
+              className="flex items-center justify-between px-3 cursor-pointer"
               style={{
                 height: '32px',
-                borderBottom: isSelected ? 'none' : '1px solid #1e1e1e',
+                borderBottom: '1px solid #1e1e1e',
+                position: 'relative',
+                zIndex: 1,
               }}
             >
               <span
                 style={{
                   fontSize: '14px',
                   fontWeight: isSelected ? 600 : 400,
-                  color: isSelected ? '#ffffff' : '#ffffff',
+                  color: '#ffffff',
                   letterSpacing: '-0.01em',
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
