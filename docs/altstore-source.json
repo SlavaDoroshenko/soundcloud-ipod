@@ -12,6 +12,12 @@
       "tintColor": "FF5500",
       "versions": [
         {
+          "version": "1.0.33",
+          "date": "2026-03-17",
+          "downloadURL": "https://github.com/SlavaDoroshenko/soundcloud-ipod/releases/download/v1.0.33/SoundCloud-iPod.ipa",
+          "size": 920390
+        },
+        {
           "version": "1.0.32",
           "date": "2026-03-17",
           "downloadURL": "https://github.com/SlavaDoroshenko/soundcloud-ipod/releases/download/v1.0.32/SoundCloud-iPod.ipa",
