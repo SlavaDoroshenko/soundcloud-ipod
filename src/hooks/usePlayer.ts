@@ -117,6 +117,7 @@ export function usePlayer() {
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
       console.error('[toggleLike]', msg)
+      alert('Like error: ' + msg.slice(0, 300))
       // Revert
       setIsLiked(!next)
       setLikedIds(prev => {
