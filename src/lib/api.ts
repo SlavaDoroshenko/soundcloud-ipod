@@ -182,8 +182,9 @@ export async function apiPut<T>(path: string, body?: unknown): Promise<T> {
   })
   saveDatadomeId(res)
   if (!res.ok) {
+    // Не обрезаем — DataDome JSON длиннее 400 символов, обрезка ломает парсинг
     const errBody = await res.text().catch(() => '')
-    throw new Error(`SC API error: ${res.status} — ${errBody.slice(0, 400)}`)
+    throw new Error(`SC API error: ${res.status} — ${errBody}`)
   }
   if (res.status === 204) return undefined as T
   return res.json() as Promise<T>
@@ -198,7 +199,7 @@ export async function apiDelete(path: string): Promise<void> {
   saveDatadomeId(res)
   if (!res.ok && res.status !== 404) {
     const errBody = await res.text().catch(() => '')
-    throw new Error(`SC API error: ${res.status} — ${errBody.slice(0, 400)}`)
+    throw new Error(`SC API error: ${res.status} — ${errBody}`)
   }
 }
 
