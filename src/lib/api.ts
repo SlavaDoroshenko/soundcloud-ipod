@@ -3,6 +3,9 @@
  * Все запросы идут через Cloudflare Worker proxy.
  */
 
+import { Capacitor } from '@capacitor/core'
+import { DataDome } from './native/DataDome'
+
 const PROXY_BASE = import.meta.env.VITE_PROXY_URL ?? 'https://api-v2.soundcloud.com'
 const SC_BASE = 'https://api-v2.soundcloud.com'
 
@@ -113,6 +116,20 @@ function saveDatadomeId(res: Response) {
   if (ddId) localStorage.setItem('sc_dd_clientid', ddId)
 }
 
+/** Запускает скрытый WKWebView → soundcloud.com → DataDome JS → сохраняет cookie.
+ *  Только на native iOS. На вебе — no-op. */
+export async function refreshDataDomeCookie(): Promise<boolean> {
+  if (!Capacitor.isNativePlatform()) return false
+  try {
+    const { cookie } = await DataDome.fetchCookie()
+    localStorage.setItem('sc_dd_clientid', cookie)
+    return true
+  } catch (err) {
+    console.warn('[DataDome] fetchCookie failed:', err)
+    return false
+  }
+}
+
 export async function apiGet<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const url = await buildUrl(path, options.params as Record<string, string | number | boolean>)
   const res = await fetch(url, {
@@ -149,8 +166,9 @@ export async function apiPut<T>(path: string, body?: unknown): Promise<T> {
   }
   let res = await makeReq()
   saveDatadomeId(res)
-  // DataDome challenge-response: retry once with the refreshed token
   if (res.status === 403) {
+    // Обновляем DataDome cookie через нативный WKWebView и повторяем
+    await refreshDataDomeCookie()
     res = await makeReq()
     saveDatadomeId(res)
   }
@@ -172,8 +190,9 @@ export async function apiDelete(path: string): Promise<void> {
   }
   let res = await makeReq()
   saveDatadomeId(res)
-  // DataDome challenge-response: retry once with the refreshed token
   if (res.status === 403) {
+    // Обновляем DataDome cookie через нативный WKWebView и повторяем
+    await refreshDataDomeCookie()
     res = await makeReq()
     saveDatadomeId(res)
   }

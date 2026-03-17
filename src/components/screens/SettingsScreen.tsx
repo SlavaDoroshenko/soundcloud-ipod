@@ -3,6 +3,7 @@ import { useAtomValue, useSetAtom, useAtom } from 'jotai'
 import { isAuthenticatedAtom, currentUserAtom, accessTokenAtom, saveUserCache } from '@/stores/auth'
 import { controlModeAtom, type ControlMode } from '@/stores/settings'
 import { loginWithToken, logout, fetchCurrentUser } from '@/lib/auth'
+import { refreshDataDomeCookie } from '@/lib/api'
 
 const TOKEN_SNIPPET = `(()=>{const t=localStorage.getItem('oauth_token');if(t){console.log(t);}else{console.warn('oauth_token не найден');}})();`
 
@@ -75,6 +76,8 @@ export default function SettingsScreen() {
   const [ddCopied, setDdCopied] = useState(false)
   const [showDdInput, setShowDdInput] = useState(false)
   const [ddSaved, setDdSaved] = useState(() => !!localStorage.getItem('sc_dd_clientid'))
+  const [ddAutoLoading, setDdAutoLoading] = useState(false)
+  const [ddAutoStatus, setDdAutoStatus] = useState<string | null>(null)
 
   async function handleLogin() {
     const token = tokenInput.trim()
@@ -130,6 +133,20 @@ export default function SettingsScreen() {
   function clearDdToken() {
     localStorage.removeItem('sc_dd_clientid')
     setDdSaved(false)
+    setDdAutoStatus(null)
+  }
+
+  async function autoDetectDdCookie() {
+    setDdAutoLoading(true)
+    setDdAutoStatus(null)
+    const ok = await refreshDataDomeCookie()
+    setDdAutoLoading(false)
+    if (ok) {
+      setDdSaved(true)
+      setDdAutoStatus('Cookie получен автоматически ✓')
+    } else {
+      setDdAutoStatus('Не удалось — введите вручную ↓')
+    }
   }
 
   function toggleMode(mode: ControlMode) {
@@ -219,16 +236,36 @@ export default function SettingsScreen() {
       {/* DataDome — required for liking tracks */}
       <SectionHeader label="DataDome Token" />
       {ddSaved ? (
-        <Row label="Token saved ✓" value="Clear" onTap={clearDdToken} />
+        <>
+          <Row label="Cookie активен ✓" value="Сбросить" onTap={clearDdToken} />
+          <Row
+            label={ddAutoLoading ? 'Загрузка...' : 'Обновить автоматически'}
+            onTap={ddAutoLoading ? undefined : autoDetectDdCookie}
+          />
+          {ddAutoStatus && (
+            <div style={{ padding: '6px 12px', fontSize: '11px', color: '#8a8a8a', borderBottom: '1px solid #1e1e1e' }}>
+              {ddAutoStatus}
+            </div>
+          )}
+        </>
       ) : (
         <>
+          <Row
+            label={ddAutoLoading ? 'Загрузка soundcloud.com...' : 'Получить автоматически'}
+            onTap={ddAutoLoading ? undefined : autoDetectDdCookie}
+          />
+          {ddAutoStatus && (
+            <div style={{ padding: '6px 12px', fontSize: '11px', color: '#8a8a8a', borderBottom: '1px solid #1e1e1e' }}>
+              {ddAutoStatus}
+            </div>
+          )}
           <Row
             label="Copy Script"
             value={ddCopied ? '✓' : 'Copy'}
             onTap={copyDdSnippet}
           />
           <Row
-            label="Enter Token"
+            label="Ввести вручную"
             onTap={() => setShowDdInput(v => !v)}
           />
           {showDdInput && (
@@ -238,7 +275,7 @@ export default function SettingsScreen() {
                 value={ddInput}
                 onChange={e => setDdInput(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && saveDdToken()}
-                placeholder="Paste datadome token..."
+                placeholder="Вставить datadome cookie..."
                 style={{
                   width: '100%',
                   background: '#1a1a1a',
@@ -269,7 +306,7 @@ export default function SettingsScreen() {
                   cursor: 'pointer',
                 }}
               >
-                Save
+                Сохранить
               </button>
             </div>
           )}
@@ -280,7 +317,8 @@ export default function SettingsScreen() {
             lineHeight: 1.5,
             borderBottom: '1px solid #1e1e1e',
           }}>
-            Needed to like tracks. Open soundcloud.com → F12 → Console → paste script → copy token
+            Нужен для лайков. Попробуй «Получить автоматически» — откроется soundcloud.com в фоне.
+            Если не сработает: Safari → soundcloud.com → запусти скрипт → скопируй токен.
           </div>
         </>
       )}

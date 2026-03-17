@@ -7,5 +7,6 @@ class MainViewController: CAPBridgeViewController {
     override open func capacitorDidLoad() {
         bridge?.registerPluginInstance(AudioPlayerPlugin())
         bridge?.registerPluginInstance(LockScreenPlugin())
+        bridge?.registerPluginInstance(DataDomePlugin())
     }
 }
