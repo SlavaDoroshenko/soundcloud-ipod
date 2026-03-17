@@ -154,7 +154,10 @@ export async function apiPut<T>(path: string, body?: unknown): Promise<T> {
     res = await makeReq()
     saveDatadomeId(res)
   }
-  if (!res.ok) throw new Error(`SC API error: ${res.status} ${res.statusText}`)
+  if (!res.ok) {
+    const errBody = await res.text().catch(() => '')
+    throw new Error(`SC API error: ${res.status} — ${errBody.slice(0, 400)}`)
+  }
   if (res.status === 204) return undefined as T
   return res.json() as Promise<T>
 }
