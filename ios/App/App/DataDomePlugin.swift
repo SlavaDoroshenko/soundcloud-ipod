@@ -2,9 +2,6 @@ import UIKit
 import WebKit
 import Capacitor
 
-/// Решает DataDome challenge, показывая страницу капчи прямо в приложении.
-/// DataDome fingerprints реальный WKWebView и либо auto-solve, либо показывает CAPTCHA.
-/// После решения — перехватываем redirect, читаем cookie, закрываем WebView.
 @objc(DataDomePlugin)
 public class DataDomePlugin: CAPPlugin, CAPBridgedPlugin {
 
@@ -17,50 +14,47 @@ public class DataDomePlugin: CAPPlugin, CAPBridgedPlugin {
 
     @objc func solveCaptcha(_ call: CAPPluginCall) {
         guard let urlStr = call.getString("url"), let url = URL(string: urlStr) else {
-            call.reject("Invalid URL")
-            return
+            call.reject("Invalid URL"); return
         }
-        DispatchQueue.main.async {
-            self.presentCaptchaVC(url: url, call: call)
-        }
+        DispatchQueue.main.async { self.present(url: url, call: call) }
     }
 
     @objc func fetchCookie(_ call: CAPPluginCall) {
         guard let url = URL(string: "https://soundcloud.com") else { call.reject("Bad URL"); return }
-        DispatchQueue.main.async {
-            self.presentCaptchaVC(url: url, call: call)
-        }
+        DispatchQueue.main.async { self.present(url: url, call: call) }
     }
 
-    private func presentCaptchaVC(url: URL, call: CAPPluginCall) {
+    private func present(url: URL, call: CAPPluginCall) {
         guard let root = UIApplication.shared.connectedScenes
             .compactMap({ $0 as? UIWindowScene })
             .flatMap({ $0.windows })
             .first(where: { $0.isKeyWindow })?.rootViewController else {
-            call.reject("No root view controller")
-            return
+            call.reject("No root VC"); return
         }
+        var top = root
+        while let p = top.presentedViewController { top = p }
         let vc = CaptchaViewController(url: url) { result in
             switch result {
-            case .success(let cookie): call.resolve(["cookie": cookie])
-            case .failure(let e):     call.reject(e.localizedDescription)
+            case .success(let c): call.resolve(["cookie": c])
+            case .failure(let e): call.reject(e.localizedDescription)
             }
         }
-        // Находим верхний VC для презентации
-        var presenter = root
-        while let p = presenter.presentedViewController { presenter = p }
-        presenter.present(vc, animated: true)
+        top.present(vc, animated: true)
     }
 }
 
 // MARK: - CaptchaViewController
 
-class CaptchaViewController: UIViewController, WKNavigationDelegate {
+final class CaptchaViewController: UIViewController, WKNavigationDelegate {
 
     private let url: URL
     private let completion: (Result<String, Error>) -> Void
     private var webView: WKWebView!
+    private var doneButton: UIButton!
+    private var statusLabel: UILabel!
     private var resolved = false
+    private var pollTimer: Timer?
+    private var initialCookieValue: String?
 
     init(url: URL, completion: @escaping (Result<String, Error>) -> Void) {
         self.url = url
@@ -72,120 +66,187 @@ class CaptchaViewController: UIViewController, WKNavigationDelegate {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = UIColor(red: 0.1, green: 0.1, blue: 0.1, alpha: 1)
+        view.backgroundColor = UIColor(red: 0.08, green: 0.08, blue: 0.08, alpha: 1)
+        buildUI()
 
-        // Заголовок
-        let titleLabel = UILabel()
-        titleLabel.text = "Проверка безопасности"
-        titleLabel.textColor = .white
-        titleLabel.font = .systemFont(ofSize: 16, weight: .semibold)
-        titleLabel.translatesAutoresizingMaskIntoConstraints = false
+        // Запоминаем текущее значение cookie ПЕРЕД загрузкой страницы
+        WKWebsiteDataStore.default().httpCookieStore.getAllCookies { [weak self] cookies in
+            self?.initialCookieValue = cookies.first(where: { $0.name == "datadome" })?.value
+            DispatchQueue.main.async { self?.loadPage() }
+        }
+    }
 
-        // Кнопка отмены
+    override func viewDidDisappear(_ animated: Bool) {
+        super.viewDidDisappear(animated)
+        pollTimer?.invalidate()
+    }
+
+    // MARK: - UI
+
+    private func buildUI() {
+        // Header
+        let header = UIView()
+        header.backgroundColor = UIColor(red: 0.12, green: 0.12, blue: 0.12, alpha: 1)
+        header.translatesAutoresizingMaskIntoConstraints = false
+
+        let title = UILabel()
+        title.text = "Проверка DataDome"
+        title.textColor = .white
+        title.font = .systemFont(ofSize: 15, weight: .semibold)
+        title.translatesAutoresizingMaskIntoConstraints = false
+
+        statusLabel = UILabel()
+        statusLabel.text = "Решите капчу, затем нажмите «Готово»"
+        statusLabel.textColor = UIColor(white: 0.6, alpha: 1)
+        statusLabel.font = .systemFont(ofSize: 12)
+        statusLabel.translatesAutoresizingMaskIntoConstraints = false
+
+        doneButton = UIButton(type: .system)
+        doneButton.setTitle("Готово", for: .normal)
+        doneButton.titleLabel?.font = .systemFont(ofSize: 15, weight: .semibold)
+        doneButton.setTitleColor(.systemBlue, for: .normal)
+        doneButton.addTarget(self, action: #selector(doneTapped), for: .touchUpInside)
+        doneButton.translatesAutoresizingMaskIntoConstraints = false
+
         let cancelBtn = UIButton(type: .system)
         cancelBtn.setTitle("Отмена", for: .normal)
-        cancelBtn.setTitleColor(.systemBlue, for: .normal)
+        cancelBtn.setTitleColor(UIColor(white: 0.5, alpha: 1), for: .normal)
         cancelBtn.addTarget(self, action: #selector(cancel), for: .touchUpInside)
         cancelBtn.translatesAutoresizingMaskIntoConstraints = false
 
-        let headerView = UIView()
-        headerView.backgroundColor = UIColor(red: 0.12, green: 0.12, blue: 0.12, alpha: 1)
-        headerView.translatesAutoresizingMaskIntoConstraints = false
-        headerView.addSubview(titleLabel)
-        headerView.addSubview(cancelBtn)
+        header.addSubview(title)
+        header.addSubview(statusLabel)
+        header.addSubview(doneButton)
+        header.addSubview(cancelBtn)
 
-        // WKWebView — shared data store чтобы cookie попали в общее хранилище
+        // WebView
         let config = WKWebViewConfiguration()
         config.websiteDataStore = WKWebsiteDataStore.default()
         webView = WKWebView(frame: .zero, configuration: config)
         webView.navigationDelegate = self
         webView.translatesAutoresizingMaskIntoConstraints = false
-        webView.backgroundColor = .white
 
-        view.addSubview(headerView)
+        view.addSubview(header)
         view.addSubview(webView)
 
         NSLayoutConstraint.activate([
-            headerView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
-            headerView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            headerView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            headerView.heightAnchor.constraint(equalToConstant: 48),
+            header.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            header.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            header.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            header.heightAnchor.constraint(equalToConstant: 64),
 
-            titleLabel.centerXAnchor.constraint(equalTo: headerView.centerXAnchor),
-            titleLabel.centerYAnchor.constraint(equalTo: headerView.centerYAnchor),
+            cancelBtn.leadingAnchor.constraint(equalTo: header.leadingAnchor, constant: 16),
+            cancelBtn.centerYAnchor.constraint(equalTo: header.centerYAnchor, constant: 8),
 
-            cancelBtn.trailingAnchor.constraint(equalTo: headerView.trailingAnchor, constant: -16),
-            cancelBtn.centerYAnchor.constraint(equalTo: headerView.centerYAnchor),
+            title.centerXAnchor.constraint(equalTo: header.centerXAnchor),
+            title.topAnchor.constraint(equalTo: header.topAnchor, constant: 12),
 
-            webView.topAnchor.constraint(equalTo: headerView.bottomAnchor),
+            statusLabel.centerXAnchor.constraint(equalTo: header.centerXAnchor),
+            statusLabel.topAnchor.constraint(equalTo: title.bottomAnchor, constant: 2),
+
+            doneButton.trailingAnchor.constraint(equalTo: header.trailingAnchor, constant: -16),
+            doneButton.centerYAnchor.constraint(equalTo: header.centerYAnchor, constant: 8),
+
+            webView.topAnchor.constraint(equalTo: header.bottomAnchor),
             webView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             webView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             webView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
         ])
+    }
 
-        webView.load(URLRequest(url: url))
+    private func loadPage() {
+        var req = URLRequest(url: url)
+        req.timeoutInterval = 20
+        webView.load(req)
     }
 
     // MARK: - WKNavigationDelegate
 
-    /// Когда DataDome auto-resolve срабатывает → редиректит на referer (api-v2.soundcloud.com).
-    /// Перехватываем, читаем cookie, закрываем.
+    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        // Начинаем polling — проверяем cookie каждую секунду
+        startPolling()
+    }
+
     func webView(_ webView: WKWebView,
                  decidePolicyFor action: WKNavigationAction,
                  decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
         let host = action.request.url?.host ?? ""
-        let isCaptchaDomain = host.contains("datadome") || host.contains("captcha-delivery")
-        let isBlank = host.isEmpty
-
-        if !isCaptchaDomain && !isBlank {
-            // Редирект на внешний домен → challenge решён
+        let isCaptcha = host.contains("datadome") || host.contains("captcha-delivery") || host.isEmpty
+        if !isCaptcha {
+            // Redirect после auto-solve
             decisionHandler(.cancel)
-            finish()
+            extractCookieAndFinish()
         } else {
             decisionHandler(.allow)
         }
     }
 
-    func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
-        guard !resolved else { return }
-        finish() // попробуем прочитать cookie даже при ошибке загрузки
+    // MARK: - Polling
+
+    private func startPolling() {
+        pollTimer?.invalidate()
+        pollTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
+            self?.checkCookie()
+        }
     }
 
-    // MARK: - Private
-
-    private func finish() {
-        guard !resolved else { return }
-        resolved = true
-
+    private func checkCookie() {
         WKWebsiteDataStore.default().httpCookieStore.getAllCookies { [weak self] cookies in
-            guard let self = self else { return }
-
-            // Ищем datadome cookie — домен может быть .soundcloud.com или captcha-delivery.com
+            guard let self = self, !self.resolved else { return }
             let dd = cookies.first(where: { $0.name == "datadome" })
-
-            DispatchQueue.main.async {
-                self.dismiss(animated: true) {
-                    if let dd = dd {
-                        self.completion(.success(dd.value))
-                    } else {
-                        self.completion(.failure(
-                            NSError(domain: "DataDome", code: 0,
-                                    userInfo: [NSLocalizedDescriptionKey: "datadome cookie not found after captcha"])
-                        ))
-                    }
+            // Авто-финиш если cookie появился или изменился
+            if let dd = dd, dd.value != self.initialCookieValue {
+                self.pollTimer?.invalidate()
+                DispatchQueue.main.async {
+                    self.statusLabel.text = "✓ Проверено, закрываем..."
+                }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    self.finish(cookie: dd.value)
                 }
             }
         }
     }
 
+    // MARK: - Actions
+
+    @objc private func doneTapped() {
+        extractCookieAndFinish()
+    }
+
     @objc private func cancel() {
+        pollTimer?.invalidate()
         guard !resolved else { return }
         resolved = true
         dismiss(animated: true) {
-            self.completion(.failure(
-                NSError(domain: "DataDome", code: -1,
-                        userInfo: [NSLocalizedDescriptionKey: "Cancelled by user"])
-            ))
+            self.completion(.failure(NSError(domain: "DataDome", code: -1,
+                userInfo: [NSLocalizedDescriptionKey: "Cancelled"])))
+        }
+    }
+
+    // MARK: - Cookie extraction
+
+    private func extractCookieAndFinish() {
+        pollTimer?.invalidate()
+        WKWebsiteDataStore.default().httpCookieStore.getAllCookies { [weak self] cookies in
+            guard let self = self else { return }
+            if let dd = cookies.first(where: { $0.name == "datadome" }) {
+                self.finish(cookie: dd.value)
+            } else {
+                DispatchQueue.main.async {
+                    self.statusLabel.text = "Cookie не найден — попробуйте ещё раз"
+                }
+            }
+        }
+    }
+
+    private func finish(cookie: String) {
+        guard !resolved else { return }
+        resolved = true
+        pollTimer?.invalidate()
+        DispatchQueue.main.async {
+            self.dismiss(animated: true) {
+                self.completion(.success(cookie))
+            }
         }
     }
 }
