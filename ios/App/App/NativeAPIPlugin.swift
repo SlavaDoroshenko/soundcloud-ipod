@@ -1,9 +1,10 @@
 import Foundation
+import WebKit
 import Capacitor
 
-/// Делает HTTP запросы напрямую к api-v2.soundcloud.com через URLSession,
-/// минуя Cloudflare Worker. URLSession не ограничен CORS и использует
-/// реальный IP устройства — DataDome пропускает лучше, чем datacenter IP.
+/// Делает HTTP запросы к api-v2.soundcloud.com через WKWebView (не URLSession).
+/// URLSession блокируется DataDome по TLS/HTTP fingerprint даже при правильном cookie.
+/// WKWebView имеет настоящий браузерный fingerprint — DataDome его пропускает.
 @objc(NativeAPIPlugin)
 public class NativeAPIPlugin: CAPPlugin, CAPBridgedPlugin {
 
@@ -14,70 +15,124 @@ public class NativeAPIPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "delete", returnType: CAPPluginReturnPromise),
     ]
 
-    private let session: URLSession = {
-        let cfg = URLSessionConfiguration.default
-        cfg.timeoutIntervalForRequest = 20
-        cfg.httpShouldSetCookies = false
-        return URLSession(configuration: cfg)
-    }()
-
     @objc func put(_ call: CAPPluginCall) {
-        makeRequest(call: call, method: "PUT")
+        DispatchQueue.main.async { self.makeRequest(call, method: "PUT") }
     }
 
     @objc func delete(_ call: CAPPluginCall) {
-        makeRequest(call: call, method: "DELETE")
+        DispatchQueue.main.async { self.makeRequest(call, method: "DELETE") }
     }
 
-    private func makeRequest(call: CAPPluginCall, method: String) {
+    private func makeRequest(_ call: CAPPluginCall, method: String) {
         guard let path     = call.getString("path"),
               let clientId = call.getString("clientId") else {
-            call.reject("Missing path or clientId")
-            return
+            call.reject("Missing path or clientId"); return
         }
-
         let accessToken = call.getString("accessToken") ?? ""
         let ddCookie    = call.getString("ddCookie")    ?? ""
+        let urlStr = "https://api-v2.soundcloud.com\(path)?client_id=\(clientId)"
 
-        var comps = URLComponents(string: "https://api-v2.soundcloud.com\(path)")!
-        comps.queryItems = [URLQueryItem(name: "client_id", value: clientId)]
-        guard let url = comps.url else {
-            call.reject("Invalid URL")
-            return
-        }
+        let launch = { WebViewAPIExecutor(call: call).run(urlStr: urlStr, method: method, accessToken: accessToken) }
 
-        var req = URLRequest(url: url)
-        req.httpMethod = method
-        req.setValue("application/json",     forHTTPHeaderField: "Content-Type")
-        req.setValue("https://soundcloud.com",  forHTTPHeaderField: "Origin")
-        req.setValue("https://soundcloud.com/", forHTTPHeaderField: "Referer")
-        // iOS Safari UA — DataDome видит реальный мобильный браузер
-        req.setValue(
-            "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1",
-            forHTTPHeaderField: "User-Agent"
-        )
-        if !accessToken.isEmpty {
-            req.setValue("OAuth \(accessToken)", forHTTPHeaderField: "Authorization")
+        // Принудительно прописываем DataDome cookie в общее WKWebsiteDataStore
+        // для .soundcloud.com — WKWebView отправит его автоматически (same-site запрос).
+        guard !ddCookie.isEmpty,
+              let cookie = HTTPCookie(properties: [
+                  .name:   "datadome",
+                  .value:  ddCookie,
+                  .domain: ".soundcloud.com",
+                  .path:   "/",
+                  .secure: "TRUE",
+              ]) else {
+            launch(); return
         }
-        if !ddCookie.isEmpty {
-            req.setValue("datadome=\(ddCookie)", forHTTPHeaderField: "Cookie")
-        }
+        WKWebsiteDataStore.default().httpCookieStore.setCookie(cookie) { launch() }
+    }
+}
 
-        session.dataTask(with: req) { data, response, error in
-            if let error = error {
-                call.reject("Request error: \(error.localizedDescription)")
-                return
-            }
-            guard let http = response as? HTTPURLResponse else {
-                call.reject("Invalid response")
-                return
-            }
-            let body = data.flatMap { String(data: $0, encoding: .utf8) } ?? ""
-            if (200..<300).contains(http.statusCode) || http.statusCode == 404 {
-                call.resolve(["status": http.statusCode])
+// MARK: - WebViewAPIExecutor
+
+private class WebViewAPIExecutor: NSObject, WKScriptMessageHandler, WKNavigationDelegate {
+
+    private var call: CAPPluginCall
+    private var webView: WKWebView!
+    private var pendingJS: String?
+    private var selfRef: WebViewAPIExecutor?   // удерживаем себя до завершения
+
+    init(call: CAPPluginCall) {
+        self.call = call
+        super.init()
+        selfRef = self
+    }
+
+    func run(urlStr: String, method: String, accessToken: String) {
+        let config = WKWebViewConfiguration()
+        config.websiteDataStore = WKWebsiteDataStore.default()
+        config.userContentController.add(self, name: "apiResult")
+
+        webView = WKWebView(frame: .zero, configuration: config)
+        webView.navigationDelegate = self
+
+        let safeToken = accessToken.replacingOccurrences(of: "'", with: "\\'")
+        let safeUrl   = urlStr.replacingOccurrences(of: "'", with: "\\'")
+
+        // JS выполняется с origin soundcloud.com → запрос к api-v2.soundcloud.com
+        // является same-site → SameSite=Lax cookie передаётся, CORS разрешён.
+        pendingJS = """
+        fetch('\(safeUrl)', {
+            method: '\(method)',
+            headers: {
+                'Authorization': 'OAuth \(safeToken)',
+                'Content-Type': 'application/json'
+            },
+            credentials: 'include'
+        }).then(function(r) {
+            if (r.status < 300 || r.status === 204 || r.status === 404) {
+                window.webkit.messageHandlers.apiResult.postMessage({ok:1, status:r.status});
             } else {
-                call.reject("HTTP \(http.statusCode): \(body)")
+                r.text().then(function(t) {
+                    window.webkit.messageHandlers.apiResult.postMessage({ok:0, status:r.status, body:t});
+                });
             }
-        }.resume()
+        }).catch(function(e) {
+            window.webkit.messageHandlers.apiResult.postMessage({ok:0, error:e.toString()});
+        });
+        """
+
+        // baseURL = soundcloud.com: JS-origin совпадает с тем, что видит SoundCloud web app.
+        // Сетевой запрос к soundcloud.com НЕ делается — только устанавливается origin для JS.
+        webView.loadHTMLString("<html><body></body></html>",
+                                baseURL: URL(string: "https://soundcloud.com")!)
+    }
+
+    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        guard let js = pendingJS else { return }
+        pendingJS = nil
+        webView.evaluateJavaScript(js, completionHandler: nil)
+    }
+
+    func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
+        finish { $0.reject("Navigation error: \(error.localizedDescription)") }
+    }
+
+    func userContentController(_ userContentController: WKUserContentController,
+                                didReceive message: WKScriptMessage) {
+        guard let d = message.body as? [String: Any] else { return }
+        finish { call in
+            if let ok = d["ok"] as? Int, ok == 1 {
+                call.resolve(["status": d["status"] ?? 0])
+            } else if let status = d["status"] as? Int, let body = d["body"] as? String {
+                call.reject("HTTP \(status): \(body)")
+            } else {
+                call.reject(d["error"] as? String ?? "Unknown API error")
+            }
+        }
+    }
+
+    private func finish(block: (CAPPluginCall) -> Void) {
+        guard selfRef != nil else { return }
+        let c = call
+        selfRef = nil
+        block(c)
     }
 }
