@@ -117,10 +117,13 @@ function saveDatadomeId(res: Response) {
   if (ddId) localStorage.setItem('sc_dd_clientid', ddId)
 }
 
-/** Извлекает DataDome challenge URL из тела 403 ответа */
-function parseCaptchaUrl(errBody: string): string | null {
+/** Извлекает DataDome challenge URL из сообщения об ошибке.
+ *  Формат: "SC API error: 403 — {"url":"https://geo.captcha-delivery.com/..."}" */
+function parseCaptchaUrl(errMsg: string): string | null {
   try {
-    const data = JSON.parse(errBody) as { url?: string }
+    const start = errMsg.indexOf('{')
+    if (start < 0) return null
+    const data = JSON.parse(errMsg.slice(start)) as { url?: string }
     if (data.url && (data.url.includes('datadome') || data.url.includes('captcha-delivery'))) {
       return data.url
     }
