@@ -19,7 +19,8 @@ export default function DownloadsScreen() {
 
   const items: MenuItem[] = downloads.map(dl => ({
     label: dl.track.title,
-    sublabel: formatBytes(dl.fileSize),
+    sublabel: dl.track.user.username,
+    artwork: (dl.track.artwork_url ?? dl.track.user.avatar_url)?.replace('-large', '-t200x200') ?? null,
     rightArrow: false,
     onTap: () => playTrack(dl.track, downloads.map(d => d.track)),
   }))

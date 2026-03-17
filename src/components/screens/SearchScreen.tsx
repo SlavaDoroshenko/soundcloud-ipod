@@ -5,13 +5,14 @@ import { sc } from '@/lib/api'
 import { currentTrackAtom } from '@/stores/player'
 import { usePlayer } from '@/hooks/usePlayer'
 import { useNavigation } from '@/stores/navigation'
+import MenuScreen, { type MenuItem } from '@/components/ipod/MenuScreen'
 
 export default function SearchScreen() {
   const [query, setQuery] = useState('')
   const [submitted, setSubmitted] = useState('')
   const currentTrack = useAtomValue(currentTrackAtom)
   const { playTrack } = usePlayer()
-  const { push } = useNavigation()
+  const { selectedIndex, setSelectedIndex, push } = useNavigation()
 
   const { data, isLoading } = useQuery({
     queryKey: ['search', submitted],
@@ -20,6 +21,18 @@ export default function SearchScreen() {
   })
 
   const tracks = data?.collection ?? []
+
+  const items: MenuItem[] = tracks.map((track) => ({
+    label: track.title,
+    sublabel: track.user.username,
+    artwork: (track.artwork_url ?? track.user.avatar_url)?.replace('-large', '-t200x200') ?? null,
+    isActive: currentTrack?.id === track.id,
+    rightArrow: false,
+    onTap: () => {
+      playTrack(track, tracks)
+      push({ id: 'now-playing' })
+    },
+  }))
 
   return (
     <div className="flex flex-col h-full">
@@ -51,61 +64,26 @@ export default function SearchScreen() {
       </div>
 
       {/* Results */}
-      <div className="flex-1 overflow-y-auto" style={{ overscrollBehavior: 'none' }}>
+      <div className="flex-1 overflow-hidden">
         {isLoading && (
-          <div className="flex items-center justify-center h-24">
+          <div className="flex items-center justify-center h-full">
             <div style={{ color: '#8a8a8a', fontSize: '13px' }}>Searching...</div>
           </div>
         )}
 
         {!isLoading && submitted && tracks.length === 0 && (
-          <div className="flex items-center justify-center h-24">
+          <div className="flex items-center justify-center h-full">
             <div style={{ color: '#8a8a8a', fontSize: '13px' }}>No results</div>
           </div>
         )}
 
-        {tracks.map((track) => {
-          const isActive = currentTrack?.id === track.id
-          const artwork = (track.artwork_url ?? track.user.avatar_url)?.replace('-large', '-t200x200')
-
-          return (
-            <div
-              key={track.id}
-              onPointerDown={() => {
-                playTrack(track, tracks)
-                push({ id: 'now-playing' })
-              }}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '10px',
-                padding: '6px 10px',
-                borderBottom: '1px solid #1e1e1e',
-                background: isActive ? 'rgba(91,174,248,0.1)' : 'transparent',
-                cursor: 'pointer',
-              }}
-            >
-              <div style={{
-                width: '36px', height: '36px', borderRadius: '4px',
-                overflow: 'hidden', flexShrink: 0, background: '#1a1a1a',
-              }}>
-                {artwork && <img src={artwork} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
-              </div>
-              <div style={{ flex: 1, overflow: 'hidden' }}>
-                <div style={{
-                  fontSize: '13px', fontWeight: isActive ? 600 : 400,
-                  color: isActive ? '#5baef8' : '#fff',
-                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                }}>
-                  {track.title}
-                </div>
-                <div style={{ fontSize: '11px', color: '#8a8a8a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: '1px' }}>
-                  {track.user.username}
-                </div>
-              </div>
-            </div>
-          )
-        })}
+        {!isLoading && tracks.length > 0 && (
+          <MenuScreen
+            items={items}
+            selectedIndex={selectedIndex}
+            onSelectIndex={setSelectedIndex}
+          />
+        )}
       </div>
     </div>
   )

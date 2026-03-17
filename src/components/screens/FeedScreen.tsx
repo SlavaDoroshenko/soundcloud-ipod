@@ -4,23 +4,18 @@ import { useAtomValue } from 'jotai'
 import { sc, apiGet } from '@/lib/api'
 import { setQueueExtender } from '@/lib/player'
 import { usePlayer } from '@/hooks/usePlayer'
-import { currentTrackAtom, isPlayingAtom } from '@/stores/player'
+import { currentTrackAtom } from '@/stores/player'
 import { useNavigation } from '@/stores/navigation'
+import MenuScreen, { type MenuItem } from '@/components/ipod/MenuScreen'
 import type { ScTrack, ScPlaylist, ScCollection } from '@/lib/api'
 
 type FeedItem = { track?: ScTrack; playlist?: ScPlaylist }
 type FeedPage = ScCollection<FeedItem>
 
-function artworkUrl(url: string | null, fallback: string) {
-  const src = url ?? fallback
-  return src ? src.replace('-large', '-t200x200') : ''
-}
-
 export default function FeedScreen() {
   const { playTrack } = usePlayer()
-  const { push } = useNavigation()
+  const { selectedIndex, setSelectedIndex, push } = useNavigation()
   const currentTrack = useAtomValue(currentTrackAtom)
-  const isPlaying = useAtomValue(isPlayingAtom)
   const sentinelRef = useRef<HTMLDivElement>(null)
   const nextHrefRef = useRef<string | null>(null)
 
@@ -85,97 +80,33 @@ export default function FeedScreen() {
     )
   }
 
+  const items: MenuItem[] = tracks.map((track) => ({
+    label: track.title,
+    sublabel: track.user.username,
+    artwork: (track.artwork_url ?? track.user.avatar_url)?.replace('-large', '-t200x200') ?? null,
+    isActive: currentTrack?.id === track.id,
+    rightArrow: false,
+    onTap: () => {
+      playTrack(track, tracks)
+      push({ id: 'now-playing' })
+    },
+  }))
+
   return (
-    <div className="h-full overflow-y-auto" style={{ overscrollBehavior: 'none' }}>
-      {tracks.map((track) => {
-        const isActive = currentTrack?.id === track.id
-        const artwork = artworkUrl(track.artwork_url, track.user.avatar_url)
-
-        return (
-          <div
-            key={track.id}
-            onPointerDown={() => {
-              playTrack(track, tracks)
-              push({ id: 'now-playing' })
-            }}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '10px',
-              padding: '6px 10px',
-              borderBottom: '1px solid #1e1e1e',
-              background: isActive ? 'rgba(91,174,248,0.1)' : 'transparent',
-              cursor: 'pointer',
-            }}
-          >
-            {/* Artwork */}
-            <div style={{
-              width: '40px',
-              height: '40px',
-              borderRadius: '4px',
-              overflow: 'hidden',
-              flexShrink: 0,
-              background: '#1a1a1a',
-            }}>
-              {artwork && (
-                <img
-                  src={artwork}
-                  alt=""
-                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                />
-              )}
+    <MenuScreen
+      items={items}
+      selectedIndex={selectedIndex}
+      onSelectIndex={setSelectedIndex}
+      footer={
+        <>
+          <div ref={sentinelRef} style={{ height: '1px' }} />
+          {isFetchingNextPage && (
+            <div style={{ textAlign: 'center', padding: '10px', color: '#8a8a8a', fontSize: '12px' }}>
+              Loading more...
             </div>
-
-            {/* Info */}
-            <div style={{ flex: 1, overflow: 'hidden' }}>
-              <div style={{
-                fontSize: '13px',
-                fontWeight: isActive ? 600 : 400,
-                color: isActive ? '#5baef8' : '#fff',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-              }}>
-                {track.title}
-              </div>
-              <div style={{
-                fontSize: '11px',
-                color: '#8a8a8a',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-                marginTop: '1px',
-              }}>
-                {track.user.username}
-              </div>
-            </div>
-
-            {/* Playing indicator */}
-            {isActive && (
-              <div style={{ flexShrink: 0, width: '12px' }}>
-                {isPlaying ? (
-                  <svg width="10" height="12" viewBox="0 0 10 12" fill="#5baef8">
-                    <rect x="0" y="0" width="3" height="12" rx="0.5" />
-                    <rect x="7" y="0" width="3" height="12" rx="0.5" />
-                  </svg>
-                ) : (
-                  <svg width="10" height="12" viewBox="0 0 10 12" fill="#5baef8">
-                    <path d="M0 0L10 6L0 12V0Z" />
-                  </svg>
-                )}
-              </div>
-            )}
-          </div>
-        )
-      })}
-
-      <div ref={sentinelRef} style={{ height: '1px' }} />
-
-      {isFetchingNextPage && (
-        <div style={{ textAlign: 'center', padding: '12px', color: '#8a8a8a', fontSize: '12px' }}>
-          Loading more...
-        </div>
-      )}
-    </div>
+          )}
+        </>
+      }
+    />
   )
 }

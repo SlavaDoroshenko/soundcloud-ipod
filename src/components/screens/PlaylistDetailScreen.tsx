@@ -7,13 +7,6 @@ import MenuScreen, { type MenuItem } from '@/components/ipod/MenuScreen'
 
 type Props = { playlistId: number }
 
-function formatDuration(ms: number) {
-  const s = Math.floor(ms / 1000)
-  const m = Math.floor(s / 60)
-  const h = Math.floor(m / 60)
-  return h > 0 ? `${h}:${String(m % 60).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`
-               : `${m}:${String(s % 60).padStart(2, '0')}`
-}
 
 export default function PlaylistDetailScreen({ playlistId }: Props) {
   const { selectedIndex, setSelectedIndex, push } = useNavigation()
@@ -29,7 +22,8 @@ export default function PlaylistDetailScreen({ playlistId }: Props) {
 
   const items: MenuItem[] = tracks.map(track => ({
     label: track.title,
-    sublabel: formatDuration(track.duration),
+    sublabel: track.user.username,
+    artwork: (track.artwork_url ?? track.user.avatar_url)?.replace('-large', '-t200x200') ?? null,
     rightArrow: false,
     onTap: () => {
       playTrack(track, tracks)
