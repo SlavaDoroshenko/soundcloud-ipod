@@ -5,6 +5,7 @@
 
 import { Capacitor } from '@capacitor/core'
 import { DataDome } from './native/DataDome'
+import { NativeAPI } from './native/NativeAPI'
 
 const PROXY_BASE = import.meta.env.VITE_PROXY_URL ?? 'https://api-v2.soundcloud.com'
 const SC_BASE = 'https://api-v2.soundcloud.com'
@@ -116,36 +117,32 @@ function saveDatadomeId(res: Response) {
   if (ddId) localStorage.setItem('sc_dd_clientid', ddId)
 }
 
-/** Разбирает тело 403 ответа, находит DataDome challenge URL и решает его в WKWebView.
- *  Только на native iOS. Возвращает true если cookie успешно обновлён. */
-async function solveDataDomeChallenge(errBody: string): Promise<boolean> {
-  if (!Capacitor.isNativePlatform()) return false
+/** Извлекает DataDome challenge URL из тела 403 ответа */
+function parseCaptchaUrl(errBody: string): string | null {
   try {
     const data = JSON.parse(errBody) as { url?: string }
     if (data.url && (data.url.includes('datadome') || data.url.includes('captcha-delivery'))) {
-      console.log('[DataDome] solving challenge:', data.url)
-      const { cookie } = await DataDome.solveCaptcha({ url: data.url })
-      localStorage.setItem('sc_dd_clientid', cookie)
-      console.log('[DataDome] cookie obtained via challenge')
-      return true
+      return data.url
     }
-  } catch { /* not JSON or no url */ }
+  } catch { /* not JSON */ }
+  return null
+}
 
-  // Fallback: загружаем soundcloud.com напрямую
+/** Показывает DataDome CAPTCHA в WebView, возвращает cookie после решения */
+async function solveCaptcha(captchaUrl: string): Promise<string> {
+  const { cookie } = await DataDome.solveCaptcha({ url: captchaUrl })
+  localStorage.setItem('sc_dd_clientid', cookie)
+  return cookie
+}
+
+/** Публичный fallback для кнопки в Settings */
+export async function refreshDataDomeCookie(): Promise<boolean> {
+  if (!Capacitor.isNativePlatform()) return false
   try {
     const { cookie } = await DataDome.fetchCookie()
     localStorage.setItem('sc_dd_clientid', cookie)
-    console.log('[DataDome] cookie obtained via soundcloud.com')
     return true
-  } catch (err) {
-    console.warn('[DataDome] fetchCookie failed:', err)
-    return false
-  }
-}
-
-/** Публичный fallback для кнопки "Обновить" в Settings */
-export async function refreshDataDomeCookie(): Promise<boolean> {
-  return solveDataDomeChallenge('')
+  } catch { return false }
 }
 
 export async function apiGet<T>(path: string, options: RequestOptions = {}): Promise<T> {
@@ -174,22 +171,13 @@ export async function apiPost<T>(path: string, body?: unknown, options: RequestO
 }
 
 export async function apiPut<T>(path: string, body?: unknown): Promise<T> {
-  const makeReq = async () => {
-    const url = await buildUrl(path)
-    return fetch(url, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json', ...authHeaders() },
-      body: body ? JSON.stringify(body) : undefined,
-    })
-  }
-  let res = await makeReq()
+  const url = await buildUrl(path)
+  const res = await fetch(url, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: body ? JSON.stringify(body) : undefined,
+  })
   saveDatadomeId(res)
-  if (res.status === 403) {
-    const errBody = await res.text().catch(() => '')
-    await solveDataDomeChallenge(errBody)
-    res = await makeReq()
-    saveDatadomeId(res)
-  }
   if (!res.ok) {
     const errBody = await res.text().catch(() => '')
     throw new Error(`SC API error: ${res.status} — ${errBody.slice(0, 400)}`)
@@ -199,22 +187,16 @@ export async function apiPut<T>(path: string, body?: unknown): Promise<T> {
 }
 
 export async function apiDelete(path: string): Promise<void> {
-  const makeReq = async () => {
-    const url = await buildUrl(path)
-    return fetch(url, {
-      method: 'DELETE',
-      headers: authHeaders(),
-    })
-  }
-  let res = await makeReq()
+  const url = await buildUrl(path)
+  const res = await fetch(url, {
+    method: 'DELETE',
+    headers: authHeaders(),
+  })
   saveDatadomeId(res)
-  if (res.status === 403) {
+  if (!res.ok && res.status !== 404) {
     const errBody = await res.text().catch(() => '')
-    await solveDataDomeChallenge(errBody)
-    res = await makeReq()
-    saveDatadomeId(res)
+    throw new Error(`SC API error: ${res.status} — ${errBody.slice(0, 400)}`)
   }
-  if (!res.ok && res.status !== 404) throw new Error(`SC API error: ${res.status} ${res.statusText}`)
 }
 
 // ─── SoundCloud Types ──────────────────────────────────────────────────────
@@ -344,11 +326,35 @@ export const sc = {
       { params: { limit, linked_partitioning: 1 } }
     ),
 
-  like: (trackId: number, userId: number) =>
-    apiPut<void>(`/users/${userId}/track_likes/${trackId}`),
+  like: async (trackId: number, userId: number) => {
+    const path = `/users/${userId}/track_likes/${trackId}`
+    if (!Capacitor.isNativePlatform()) return apiPut<void>(path)
+    try {
+      return await apiPut<void>(path)
+    } catch (err) {
+      // 403 DataDome → решаем капчу на устройстве, затем делаем запрос
+      // напрямую с устройства (тот же IP что и при капче)
+      const captchaUrl = parseCaptchaUrl(String(err))
+      if (!captchaUrl) throw err
+      const cookie = await solveCaptcha(captchaUrl)
+      const clientId = await getClientId()
+      await NativeAPI.put({ path, clientId, accessToken: getAccessToken() ?? '', ddCookie: cookie })
+    }
+  },
 
-  unlike: (trackId: number, userId: number) =>
-    apiDelete(`/users/${userId}/track_likes/${trackId}`),
+  unlike: async (trackId: number, userId: number) => {
+    const path = `/users/${userId}/track_likes/${trackId}`
+    if (!Capacitor.isNativePlatform()) return apiDelete(path)
+    try {
+      return await apiDelete(path)
+    } catch (err) {
+      const captchaUrl = parseCaptchaUrl(String(err))
+      if (!captchaUrl) throw err
+      const cookie = await solveCaptcha(captchaUrl)
+      const clientId = await getClientId()
+      await NativeAPI.delete({ path, clientId, accessToken: getAccessToken() ?? '', ddCookie: cookie })
+    }
+  },
 
   playlists: (userId: number, limit = 50) =>
     apiGet<ScCollection<ScPlaylist>>(`/users/${userId}/playlists`, { params: { limit, linked_partitioning: 1 } }),
